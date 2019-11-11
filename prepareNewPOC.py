@@ -44,9 +44,9 @@ instanceName = args.instanceName
 '''
 Usage: prepareNewPOC.py --un brandon --pw some-password123 --newGroup MyNewGroup --executionPolicySource 'This policy'
                         --exfiltrationPolicySource 'That policy' --ransomwarePolicySource 'The other policy' 
-                        --playbookPolicySource 'Magic policy' --setProtectionOff
+                        --playbookPolicySource 'Magic policy' --setProtectionOff --instanceName 'myInstance'
 
-This will set the new group's name to MyNewGroup which will then be prepended to all the cloned policies using the source 
+This will connet to 'https://myInstance.console.ensilo.com' and set the new group's name to MyNewGroup which will then be prepended to all the cloned policies using the source 
 policy's name, e.g. the new execution policy will be called 'MyNewGroup This policy' using 'This policy' from the source and
 'MyNewGroup' name. The formula used is '{newGroup} {executionPolicySource}' 
 
@@ -213,11 +213,11 @@ def assign_collector(policyName,collectorsGroupName):
                     items.sendRequest('put',{'policyName': policyName,'collectorsGroupName': collectorsGroupName},url)
                     if policy['operationMode'] == 'Simulation':
                         print(f'{policyName} will be set to Prevention ')
-                        items.sendRequest('put',{'policyName':policyName,'mode':'Prevention'})
+                        items.sendRequest('put',{'policyName':policyName,'mode':'Prevention',url})
                     if policy['operationMode'] == 'Prevention':
                         if args.setProtectionOff:
                             print(f'setProtectionOff argument set, {policyName} will be set to Simulation')
-                            items.sendRequest('put',{'policyName':policyName,'mode':'Simulation'})
+                            items.sendRequest('put',{'policyName':policyName,'mode':'Simulation'},url)
                         else:
                             print(f'{policyName} is already set to Prevention ')
                     print(f'**ASSIGN POLICY** Sending request to update policies')
