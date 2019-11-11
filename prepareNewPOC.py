@@ -20,88 +20,41 @@ parser.add_argument('--ransomwarePolicySource', required=False, type=str, help="
 parser.add_argument('--ransomwarePolicyDestination', required=False, type=str, help="What will the cloned Ransomware Policy be called? Default prepends source with newGroup")
 parser.add_argument('--playbookPolicySource', required=False, type=str, help="Which Playbook Policy will be cloned? Default is -Default Playbook-")
 parser.add_argument('--playbookPolicyDestination', required=False, type=str, help="What will the cloned Playbook Policy be called?  Default prepends source with newGroup")
-parser.add_argument('--version', action='version', version='%(prog)s 0.9')
+parser.add_argument('--version', action='version', version='%(prog)s 1.0')
 parser.add_argument('--un', required=True, type=str, help='Username to log into the enSilo console with') #unhandled
 parser.add_argument('--pw', required=True, type=str, help='Password to log into the enSilo console with') #unhandled
-parser.add_argument('--instance', required=True, type=str, help='Instance name of the enSilo console (THIS.console.ensilo.com)') #unhandled
+parser.add_argument('--instanceName', required=True, type=str, help='Instance name of the enSilo console (THIS.console.ensilo.com)') #unhandled
 
 args = parser.parse_args()
 
-if args.newGroup is not None:
-    newGroup = args.newGroup
-else:
-    newGroup = 'Protected'
-
-if args.executionPolicySource is not None:
-    executionPolicySource = args.executionPolicySource
-else:
-    executionPolicySource = 'Execution Prevention'
-
-if args.executionPolicyDestination is not None:
-    executionPolicyDestination = args.executionPolicyDestination
-else:
-    executionPolicyDestination = f'{newGroup} {executionPolicySource}'
-
-if args.exfiltrationPolicySource is not None:
-    exfiltrationPolicySource = args.exfiltrationPolicySource
-else:
-    exfiltrationPolicySource = 'Exfiltration Prevention'
-
-if args.exfiltrationPolicyDestination is not None:
-    exfiltrationPolicyDestination = args.exfiltrationPolicyDestination
-else:
-    exfiltrationPolicyDestination = f'{newGroup} {exfiltrationPolicySource}'
-
-if args.ransomwarePolicySource is not None:
-    ransomwarePolicySource = args.ransomwarePolicySource
-else:
-     ransomwarePolicySource= 'Ransomware Prevention'
-
-if args.ransomwarePolicyDestination is not None:
-    ransomwarePolicyDestination = args.ransomwarePolicyDestination
-else:
-    ransomwarePolicyDestination = f'{newGroup} {ransomwarePolicySource}'
-
-if args.playbookPolicySource is not None:
-    playbookPolicySource = args.playbookPolicySource
-else:
-    playbookPolicySource = 'Default Playbook'
-
-if args.playbookPolicyDestination is not None:
-    playbookPolicyDestination = args.playbookPolicyDestination
-else:
-    playbookPolicyDestination = f'{newGroup} {playbookPolicySource}'
-
-# newGroup = 'Protected'
-# executionPolicySource = 'Execution Prevention'
-# executionPolicyDestination = f'{newGroup} {executionPolicySource}'
-# exfiltrationPolicySource = 'Exfiltration Prevention'
-# exfiltrationPolicyDestination = f'{newGroup} {exfiltrationPolicySource}'
-# ransomwarePolicySource = 'Ransomware Prevention'
-# ransomwarePolicyDestination = f'{newGroup} {ransomwarePolicySource}'
-# playbookPolicySource = 'Default Playbook'
-# playbookPolicyDestination = f'{newGroup} {playbookPolicySource}'
+newGroup = 'Protected' if args.newGroup is None else args.newGroup
+executionPolicySource = 'Execution Prevention' if args.executionPolicySource is None else args.executionPolicySource
+executionPolicyDestination = f'{newGroup} {executionPolicySource}' if args.executionPolicyDestination is None else args.executionPolicyDestination
+exfiltrationPolicySource = 'Exfiltration Prevention' if args.exfiltrationPolicySource is None else args.exfiltrationPolicySource
+exfiltrationPolicyDestination = f'{newGroup} {exfiltrationPolicySource}' if args.exfiltrationPolicyDestination is None else args.exfiltrationPolicyDestination
+ransomwarePolicySource = 'Ransomware Prevention' if args.ransomwarePolicySource is None else args.ransomwarePolicySource
+ransomwarePolicyDestination = f'{newGroup} {ransomwarePolicySource}' if args.ransomwarePolicyDestination is None else args.ransomwarePolicyDestination
+playbookPolicySource = 'Default Playbook' if args.playbookPolicySource is None else args.playbookPolicySource
+playbookPolicyDestination = f'{newGroup} {playbookPolicySource}' if args.playbookPolicyDestination is None else args.playbookPolicyDestination
+username = args.un
+instanceName = args.instanceName
 
 
 '''
 Unassign 'High Security Collector Group' from default groups ----- enSilo does not support unassigning through API
 Assign 'High Security Collector Group' to Protected Policies
 '''
-customer_name = input(f'What is the customer name? (This will be for the URL - HERE.console.ensilo.com): ')
 
 class Credentials:
   def __init__(self):
     self.crypt_key = Fernet.generate_key()
     self.f = Fernet(self.crypt_key)
-    self.un = input('Username (User must have Rest API role within WebGUI): ')
-    self.pw = self.encrypt_pw()
-
-  def encrypt_pw(self):
-    pw_encrypted = self.f.encrypt(getpass.getpass(prompt='Password: ').encode())
-    return pw_encrypted
+    self.un = username
+    self.pw = self.f.encrypt(args.pw.encode())
 
   def decrypt_pw(self):
     return self.f.decrypt(self.pw)
+
 creds = Credentials()
 
 class GetListOf:
@@ -131,7 +84,7 @@ class GetListOf:
         URLDict = {'policies':f'policies/list-policies',
                         'playbooks':f'playbooks-policies/list-policies',
                         'groups':f'inventory/list-groups'}
-        url = f'https://{customer_name}.console.ensilo.com/management-rest/{URLDict[request_type]}'
+        url = f'https://{instanceName}.console.ensilo.com/management-rest/{URLDict[request_type]}'
         return url
     
     def _createList(self,requestType):
@@ -168,7 +121,7 @@ items = GetListOf()
 def create_group(groupName):
     if groupName not in items.GroupsList:
         print(f'**CREATE GROUP** Sending request to create group {groupName}')
-        url = f'https://{customer_name}.console.ensilo.com/management-rest/inventory/create-collector-group'
+        url = f'https://{instanceName}.console.ensilo.com/management-rest/inventory/create-collector-group'
         items.sendRequest('post',{'name':groupName},url)
         print(f'**CREATE GROUP** Sending request to update groups')
         items.Update('groups')
@@ -183,7 +136,7 @@ def clone_playbook(sourcePolicyName,newPolicyName):
     if sourcePolicyName in items.PlaybooksList:
         if newPolicyName not in items.PlaybooksList:
             print(f'**CLONE PLAYBOOK** Sending request to clone Playbook {sourcePolicyName} to {newPolicyName}')
-            url = f'https://{customer_name}.console.ensilo.com/management-rest/playbooks-policies/clone'
+            url = f'https://{instanceName}.console.ensilo.com/management-rest/playbooks-policies/clone'
             items.sendRequest('post',{'sourcePolicyName': sourcePolicyName,'newPolicyName': newPolicyName},url)
             print(f'**CLONE PLAYBOOK** Sending request to update playbooks')
             items.Update('playbooks')
@@ -204,7 +157,7 @@ def assign_playbook(policyName,collectorGroupName):
         else:
             if collectorGroupName not in check['collectorGroups']:
                 print(f'**ASSIGN PLAYBOOKS** Sending request to assign group {collectorGroupName} to Playbook {policyName}')
-                url = f'https://{customer_name}.console.ensilo.com/management-rest/playbooks-policies/assign-collector-group'
+                url = f'https://{instanceName}.console.ensilo.com/management-rest/playbooks-policies/assign-collector-group'
                 items.sendRequest('put',{'policyName': policyName,'collectorGroupNames': collectorGroupName},url)
                 print(f'**ASSIGN PLAYBOOKS** Sending request to update playbooks')
                 items.Update('playbooks')
@@ -225,7 +178,7 @@ def clone_policy(sourcePolicyName,newPolicyName):
     if sourcePolicyName in items.PoliciesList:
         if newPolicyName not in items.PoliciesList:
             print(f'**CLONE POLICY** Sending request to clone {sourcePolicyName} to Policy {newPolicyName}')
-            url = f'https://{customer_name}.console.ensilo.com/management-rest/policies/clone'
+            url = f'https://{instanceName}.console.ensilo.com/management-rest/policies/clone'
             items.sendRequest('post',{'sourcePolicyName': sourcePolicyName,'newPolicyName': newPolicyName},url)
             print(f'**CLONE POLICY** Sending request to update policies')
             items.Update('policies')
@@ -245,7 +198,7 @@ def assign_collector(policyName,collectorsGroupName):
             else:
                 if collectorsGroupName not in check['agentGroups']:
                     print(f'**ASSIGN POLICY** Sending request to assign group {collectorsGroupName} to Policy {policyName}')
-                    url = f'https://{customer_name}.console.ensilo.com/management-rest/policies/assign-collector-group'
+                    url = f'https://{instanceName}.console.ensilo.com/management-rest/policies/assign-collector-group'
                     items.sendRequest('put',{'policyName': policyName,'collectorsGroupName': collectorsGroupName},url)
                     print(f'**ASSIGN POLICY** Sending request to update policies')
                     items.Update('policies')
