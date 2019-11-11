@@ -7,6 +7,81 @@ import re
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 import json
+import argparse
+
+parser = argparse.ArgumentParser(description='These arguments are needed to create the objects')
+
+parser.add_argument('--newGroup', required=False, type=str, help="Name for the new Collector Group - Default is 'Protected'")
+parser.add_argument('--executionPolicySource', required=False, type=str, help="Which Execution Policy will be cloned? Default is -Execution Prevention-")
+parser.add_argument('--executionPolicyDestination', required=False, type=str, help="What will the cloned Execution Policy be called? Default prepends source with newGroup")
+parser.add_argument('--exfiltrationPolicySource', required=False, type=str, help="Which Exfiltration Policy will be cloned? Default is -Exfiltration Prevention-")
+parser.add_argument('--exfiltrationPolicyDestination', required=False, type=str, help="What will the cloned Exfiltration Policy be called? Default prepends source with newGroup")
+parser.add_argument('--ransomwarePolicySource', required=False, type=str, help="Which Ransomware Policy will be cloned? Default is -Ransomware Prevention-")
+parser.add_argument('--ransomwarePolicyDestination', required=False, type=str, help="What will the cloned Ransomware Policy be called? Default prepends source with newGroup")
+parser.add_argument('--playbookPolicySource', required=False, type=str, help="Which Playbook Policy will be cloned? Default is -Default Playbook-")
+parser.add_argument('--playbookPolicyDestination', required=False, type=str, help="What will the cloned Playbook Policy be called?  Default prepends source with newGroup")
+parser.add_argument('--version', action='version', version='%(prog)s 0.9')
+parser.add_argument('--un', required=True, type=str, help='Username to log into the enSilo console with') #unhandled
+parser.add_argument('--pw', required=True, type=str, help='Password to log into the enSilo console with') #unhandled
+parser.add_argument('--instance', required=True, type=str, help='Instance name of the enSilo console (THIS.console.ensilo.com)') #unhandled
+
+args = parser.parse_args()
+
+if args.newGroup is not None:
+    newGroup = args.newGroup
+else:
+    newGroup = 'Protected'
+
+if args.executionPolicySource is not None:
+    executionPolicySource = args.executionPolicySource
+else:
+    executionPolicySource = 'Execution Prevention'
+
+if args.executionPolicyDestination is not None:
+    executionPolicyDestination = args.executionPolicyDestination
+else:
+    executionPolicyDestination = f'{newGroup} {executionPolicySource}'
+
+if args.exfiltrationPolicySource is not None:
+    exfiltrationPolicySource = args.exfiltrationPolicySource
+else:
+    exfiltrationPolicySource = 'Exfiltration Prevention'
+
+if args.exfiltrationPolicyDestination is not None:
+    exfiltrationPolicyDestination = args.exfiltrationPolicyDestination
+else:
+    exfiltrationPolicyDestination = f'{newGroup} {exfiltrationPolicySource}'
+
+if args.ransomwarePolicySource is not None:
+    ransomwarePolicySource = args.ransomwarePolicySource
+else:
+     ransomwarePolicySource= 'Ransomware Prevention'
+
+if args.ransomwarePolicyDestination is not None:
+    ransomwarePolicyDestination = args.ransomwarePolicyDestination
+else:
+    ransomwarePolicyDestination = f'{newGroup} {ransomwarePolicySource}'
+
+if args.playbookPolicySource is not None:
+    playbookPolicySource = args.playbookPolicySource
+else:
+    playbookPolicySource = 'Default Playbook'
+
+if args.playbookPolicyDestination is not None:
+    playbookPolicyDestination = args.playbookPolicyDestination
+else:
+    playbookPolicyDestination = f'{newGroup} {playbookPolicySource}'
+
+# newGroup = 'Protected'
+# executionPolicySource = 'Execution Prevention'
+# executionPolicyDestination = f'{newGroup} {executionPolicySource}'
+# exfiltrationPolicySource = 'Exfiltration Prevention'
+# exfiltrationPolicyDestination = f'{newGroup} {exfiltrationPolicySource}'
+# ransomwarePolicySource = 'Ransomware Prevention'
+# ransomwarePolicyDestination = f'{newGroup} {ransomwarePolicySource}'
+# playbookPolicySource = 'Default Playbook'
+# playbookPolicyDestination = f'{newGroup} {playbookPolicySource}'
+
 
 '''
 Unassign 'High Security Collector Group' from default groups ----- enSilo does not support unassigning through API
@@ -194,17 +269,6 @@ def _checkItemInList(objectType,policyName):
             'playbooks':lambda: next((item for item in items.PlaybooksJSON if item['name'] == policyName), False) }
     return dict[objectType]()
 
-
-
-newGroup = 'Protected'
-executionPolicySource = 'Execution Prevention'
-executionPolicyDestination = 'Protected Execution Prevention'
-exfiltrationPolicySource = 'Exfiltration Prevention'
-exfiltrationPolicyDestination = 'Protected Exfiltration Prevention'
-ransomwarePolicySource = 'Ransomware Prevention'
-ransomwarePolicyDestination = 'Protected Ransomware Prevention'
-playbookPolicySource = 'Default Playbook'
-playbookPolicyDestination = 'Protected Playbook'
 
 create_group(newGroup)
 clone_policy(executionPolicySource,executionPolicyDestination)
