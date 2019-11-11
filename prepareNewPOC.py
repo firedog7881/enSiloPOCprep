@@ -22,8 +22,7 @@ class Credentials:
     self.pw = self.encrypt_pw()
 
   def encrypt_pw(self):
-    pw = getpass.getpass(prompt='Password: ')
-    pw_encrypted = self.f.encrypt(pw.encode())
+    pw_encrypted = self.f.encrypt(getpass.getpass(prompt='Password: ').encode())
     return pw_encrypted
 
   def decrypt_pw(self):
@@ -33,13 +32,13 @@ creds = Credentials()
 class GetListOf:
     def __init__(self):
         print(f'**INIT** Getting Groups/Policies/Playbooks')
+        self.PlaybooksJSON = defaultdict()
+        self.GroupsJSON = defaultdict()
+        self.PoliciesJSON = defaultdict()
         self.GroupsList = self._createList('groups')
         self.PoliciesList = self._createList('policies')
         self.PlaybooksList = self._createList('playbooks')
         print(f'**INIT** Completed getting Groups/Policies/Playbooks')
-        self.PlaybooksJSON = defaultdict()
-        self.GroupsJSON = defaultdict()
-        self.PoliciesJSON = defaultdict()
     
     def Update(self,requestType):
         if requestType == 'groups':
@@ -126,19 +125,24 @@ def assign_playbook(policyName,collectorGroupName):
     if policyName in items.PlaybooksList:
         check = _checkItemInList('playbooks',policyName)
         if check == False:
-            print(f'**ASSIGN PLAYBOOKS** Sending request to assign group {collectorGroupName} to Playbook {policyName}')
-            url = f'https://{customer_name}.console.ensilo.com/management-rest/playbooks-policies/assign-collector-group'
-            items.sendRequest('put',{'policyName': policyName,'collectorGroupNames': collectorGroupName},url)
-            print(f'**ASSIGN PLAYBOOKS** Sending request to update playbooks')
-            items.Update('playbooks')
-            collectorsList = _checkItemInList('playbooks',policyName)
-            if collectorsList == False:
-                print(f'**ASSIGN PLAYBOOKS** Error getting list of Collectors for Playbook policy: {policyName}')
-            else:
-                if collectorGroupName in collectorsList:
-                    print(f'**ASSIGN PLAYBOOKS** Successfully assigned {collectorGroupName} to {policyName} Playbook policy')
+            print(f'**ASSIGN POLICY** Error checking the list of Collectors for Playbook: {policyName}')
+        else:
+            if collectorGroupName not in check['collectorGroups']:
+                print(f'**ASSIGN PLAYBOOKS** Sending request to assign group {collectorGroupName} to Playbook {policyName}')
+                url = f'https://{customer_name}.console.ensilo.com/management-rest/playbooks-policies/assign-collector-group'
+                items.sendRequest('put',{'policyName': policyName,'collectorGroupNames': collectorGroupName},url)
+                print(f'**ASSIGN PLAYBOOKS** Sending request to update playbooks')
+                items.Update('playbooks')
+                playbookJSON = _checkItemInList('playbooks',policyName)
+                if playbookJSON == False:
+                    print(f'**ASSIGN PLAYBOOKS** Error getting list of Collectors for Playbook policy: {policyName}')
                 else:
-                    print(f'**ASSIGN PLAYBOOKS** Could not verify {collectorGroupName} was added to Playbook {policyName}')
+                    if collectorGroupName in playbookJSON['collectorGroups']:
+                        print(f'**ASSIGN PLAYBOOKS** Successfully assigned {collectorGroupName} to {policyName} Playbook policy')
+                    else:
+                        print(f'**ASSIGN PLAYBOOKS** Could not verify {collectorGroupName} was added to Playbook {policyName}')
+            else:
+                print(f'**ASSIGN PLAYBOOKS** {collectorGroupName} is already assigned to {policyName}')
     else:
         print(f'**ASSIGN PLAYBOOKS** Playbook polciy {policyName} not found')
     
@@ -170,11 +174,11 @@ def assign_collector(policyName,collectorsGroupName):
                     items.sendRequest('put',{'policyName': policyName,'collectorsGroupName': collectorsGroupName},url)
                     print(f'**ASSIGN POLICY** Sending request to update policies')
                     items.Update('policies')
-                    collectorsList = _checkItemInList('policies',policyName)
-                    if collectorsList == False:
+                    playbookJSON = _checkItemInList('policies',policyName)
+                    if playbookJSON == False:
                         print(f'**ASSIGN POLICY** Command sent to assign but there was an error getting the list of Collectors for policy: {policyName}')
                     else:
-                        if collectorsGroupName in collectorsList['agentGroups']:
+                        if collectorsGroupName in playbookJSON['agentGroups']:
                             print(f'**ASSIGN POLICY** Successfully assigned {collectorsGroupName} to {policyName} policy')
                         else:
                             print(f'**ASSIGN POLICY** Could not verify {collectorsGroupName} was added to {policyName}')
@@ -192,13 +196,22 @@ def _checkItemInList(objectType,policyName):
 
 
 
+newGroup = 'Protected'
+executionPolicySource = 'Execution Prevention'
+executionPolicyDestination = 'Protected Execution Prevention'
+exfiltrationPolicySource = 'Exfiltration Prevention'
+exfiltrationPolicyDestination = 'Protected Exfiltration Prevention'
+ransomwarePolicySource = 'Ransomware Prevention'
+ransomwarePolicyDestination = 'Protected Ransomware Prevention'
+playbookPolicySource = 'Default Playbook'
+playbookPolicyDestination = 'Protected Playbook'
 
-create_group('Protected')
-clone_policy('Execution Prevention','Protected Execution Prevention')
-clone_policy('Exfiltration Prevention','Protected Exfiltration Prevention')
-clone_policy('Ransomware Prevention','Protected Ransomware Prevention')
-assign_collector('Protected Execution Prevention','Protected')
-assign_collector('Protected Exfiltration Prevention','Protected')
-assign_collector('Protected Ransomware Prevention','Protected')
-clone_playbook('Default Playbook','Protected Playbook')
-assign_playbook('Protected Playbook','Protected')
+create_group(newGroup)
+clone_policy(executionPolicySource,executionPolicyDestination)
+clone_policy(exfiltrationPolicySource,exfiltrationPolicyDestination)
+clone_policy(ransomwarePolicySource,ransomwarePolicyDestination)
+assign_collector(executionPolicyDestination,newGroup)
+assign_collector(exfiltrationPolicyDestination,newGroup)
+assign_collector(ransomwarePolicyDestination,newGroup)
+clone_playbook(playbookPolicySource,playbookPolicyDestination)
+assign_playbook(playbookPolicyDestination,newGroup)
