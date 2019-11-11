@@ -213,7 +213,7 @@ def assign_collector(policyName,collectorsGroupName):
                     items.sendRequest('put',{'policyName': policyName,'collectorsGroupName': collectorsGroupName},url)
                     if policy['operationMode'] == 'Simulation':
                         print(f'{policyName} will be set to Prevention ')
-                        items.sendRequest('put',{'policyName':policyName,'mode':'Prevention',url})
+                        items.sendRequest('put',{'policyName':policyName,'mode':'Prevention'},url)
                     if policy['operationMode'] == 'Prevention':
                         if args.setProtectionOff:
                             print(f'setProtectionOff argument set, {policyName} will be set to Simulation')
