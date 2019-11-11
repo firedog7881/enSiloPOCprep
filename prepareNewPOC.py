@@ -9,7 +9,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 import json
 import argparse
 
-parser = argparse.ArgumentParser(description='These arguments are needed to create the objects')
+parser = argparse.ArgumentParser(description='This script is meant to connect to an existing enSilo console and prepare it for first use in a POC. The intent is to go beyond the default setup to make it easier for the intial testers to be able to have different groups to be able to test with if they want to start blocking without going through the burn in period.')
 
 parser.add_argument('--newGroup', required=False, type=str, help="Name for the new Collector Group - Default is 'Protected'")
 parser.add_argument('--executionPolicySource', required=False, type=str, help="Which Execution Policy will be cloned? Default is -Execution Prevention-")
@@ -24,6 +24,7 @@ parser.add_argument('--version', action='version', version='%(prog)s 1.0')
 parser.add_argument('--un', required=True, type=str, help='Username to log into the enSilo console with') #unhandled
 parser.add_argument('--pw', required=True, type=str, help='Password to log into the enSilo console with') #unhandled
 parser.add_argument('--instanceName', required=True, type=str, help='Instance name of the enSilo console (THIS.console.ensilo.com)') #unhandled
+parser.add_argument('--setProtectionOff', action='store_true', help='This will set the Policies to Simulation when cloned')
 
 args = parser.parse_args()
 
@@ -41,6 +42,15 @@ instanceName = args.instanceName
 
 
 '''
+Usage: prepareNewPOC.py --un brandon --pw some-password123 --newGroup MyNewGroup --executionPolicySource 'This policy'
+                        --exfiltrationPolicySource 'That policy' --ransomwarePolicySource 'The other policy' 
+                        --playbookPolicySource 'Magic policy' --setProtectionOff
+
+This will set the new group's name to MyNewGroup which will then be prepended to all the cloned policies using the source 
+policy's name, e.g. the new execution policy will be called 'MyNewGroup This policy' using 'This policy' from the source and
+'MyNewGroup' name. The formula used is '{newGroup} {executionPolicySource}' 
+
+These are things that need to be added but are not supported on enSilo API as of Nov/11/2019
 Unassign 'High Security Collector Group' from default groups ----- enSilo does not support unassigning through API
 Assign 'High Security Collector Group' to Protected Policies
 '''
@@ -118,6 +128,7 @@ class GetListOf:
 
 items = GetListOf()
 
+
 def create_group(groupName):
     if groupName not in items.GroupsList:
         print(f'**CREATE GROUP** Sending request to create group {groupName}')
@@ -151,11 +162,11 @@ def clone_playbook(sourcePolicyName,newPolicyName):
 
 def assign_playbook(policyName,collectorGroupName):
     if policyName in items.PlaybooksList:
-        check = _checkItemInList('playbooks',policyName)
-        if check == False:
+        policy = _checkItemInList('playbooks',policyName)
+        if policy == False:
             print(f'**ASSIGN POLICY** Error checking the list of Collectors for Playbook: {policyName}')
         else:
-            if collectorGroupName not in check['collectorGroups']:
+            if collectorGroupName not in policy['collectorGroups']:
                 print(f'**ASSIGN PLAYBOOKS** Sending request to assign group {collectorGroupName} to Playbook {policyName}')
                 url = f'https://{instanceName}.console.ensilo.com/management-rest/playbooks-policies/assign-collector-group'
                 items.sendRequest('put',{'policyName': policyName,'collectorGroupNames': collectorGroupName},url)
@@ -192,24 +203,44 @@ def clone_policy(sourcePolicyName,newPolicyName):
 def assign_collector(policyName,collectorsGroupName):
     if policyName in items.PoliciesList:
         if collectorsGroupName in items.GroupsList:
-            check = _checkItemInList('policies',policyName)
-            if check == False:
+            policy = _checkItemInList('policies',policyName)
+            if policy == False:
                 print(f'**ASSIGN POLICY** There was a problem getting group list ')
             else:
-                if collectorsGroupName not in check['agentGroups']:
+                if collectorsGroupName not in policy['agentGroups']:
                     print(f'**ASSIGN POLICY** Sending request to assign group {collectorsGroupName} to Policy {policyName}')
                     url = f'https://{instanceName}.console.ensilo.com/management-rest/policies/assign-collector-group'
                     items.sendRequest('put',{'policyName': policyName,'collectorsGroupName': collectorsGroupName},url)
+                    if policy['operationMode'] == 'Simulation':
+                        print(f'{policyName} will be set to Prevention ')
+                        items.sendRequest('put',{'policyName':policyName,'mode':'Prevention'})
+                    if policy['operationMode'] == 'Prevention':
+                        if args.setProtectionOff:
+                            print(f'setProtectionOff argument set, {policyName} will be set to Simulation')
+                            items.sendRequest('put',{'policyName':policyName,'mode':'Simulation'})
+                        else:
+                            print(f'{policyName} is already set to Prevention ')
                     print(f'**ASSIGN POLICY** Sending request to update policies')
                     items.Update('policies')
-                    playbookJSON = _checkItemInList('policies',policyName)
-                    if playbookJSON == False:
+                    policyJSON = _checkItemInList('policies',policyName)
+                    if policyJSON == False:
                         print(f'**ASSIGN POLICY** Command sent to assign but there was an error getting the list of Collectors for policy: {policyName}')
                     else:
-                        if collectorsGroupName in playbookJSON['agentGroups']:
+                        if collectorsGroupName in policyJSON['agentGroups']:
                             print(f'**ASSIGN POLICY** Successfully assigned {collectorsGroupName} to {policyName} policy')
                         else:
                             print(f'**ASSIGN POLICY** Could not verify {collectorsGroupName} was added to {policyName}')
+                        
+                        if args.setProtectionOff:
+                            if policyJSON['operationMode'] == 'Simulation':
+                                print(f'Confirmed {policyName} is set to Simulation')
+                            if policyJSON['operationMode'] == 'Prevention':
+                                print(f'setProtectionOff is set, error setting {policyName} to Prevention')
+                        else:
+                            if policyJSON['operationMode'] == 'Simulation':
+                                print(f'Error setting {policyName} to Prevention')
+                            if policyJSON['operationMode'] == 'Prevention':
+                                print(f'Confirmed {policyName} is set to Prevention')
                 else:
                     print(f'**ASSIGN POLICY** {collectorsGroupName} is already assigned to {policyName}')
         else:
